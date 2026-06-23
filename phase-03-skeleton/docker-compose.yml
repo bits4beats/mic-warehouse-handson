@@ -1,0 +1,52 @@
+services:
+  mic-app:
+    build: .
+    container_name: mic-app
+    ports:
+      - "8088:80"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: mic
+      DB_USER: root
+      DB_PASS: root
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: mic-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mic
+    ports:
+      - "3306:3306"
+    volumes:
+      - mic_db_data:/var/lib/mysql
+      # On first boot MySQL runs every *.sql in this dir alphabetically:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    container_name: mic-adminer
+    ports:
+      - "8082:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+      ADMINER_DEFAULT_DB_NAME: mic
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mic_db_data:
