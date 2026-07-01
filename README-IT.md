@@ -1,50 +1,51 @@
-# MIC → Warehouse BC: un'estrazione hands-on (Lezione 7)
+# MIC → Warehouse BC: adapter e dual-write (Lezione 8 · Fase 4)
 
 > English version: [`README.md`](./README.md)
 
-Un lab hands-on: estrarre la Bounded Context **Warehouse** da **MIC**, un monolite PHP legacy di
-fatturazione, dentro un microservizio **Go** pulito, applicando il pattern **Strangler Fig** con un
-**agente AI di coding** come motore.
+Un lab pratico che continua l'estrazione del Bounded Context **Warehouse** da **MIC**, un monolite PHP
+legacy di fatturazione, verso un microservizio **Go** pulito, con un **agente di coding AI** come motore.
+La Lezione 7 ha costruito il dominio (Fasi 1–3); la **Lezione 8** gli dà un vero layer di persistenza.
 
-Questa repo e' il lab della **Lezione 7**. Il lavoro lo fai tu: le slide non ti danno la risposta.
+Questo branch è il lab per la **Lezione 8 — Fase 4** (adapter + dual-write). Il lavoro lo fai tu; le
+slide non ti danno la risposta.
 
-## Com'e' organizzata la repo
+## Com'è organizzata la repo
 
-Ogni lezione e' fatta di **due branch**:
+La Lezione 8 è divisa per fase, ogni fase come **due branch** (punto di partenza + soluzione di riferimento):
 
-| Branch | Cos'e' |
+| Branch | Cos'è |
 |---|---|
-| `lezione-7` | Il **punto di partenza** da cui lavori, ed e' quello che ottieni quando cloni. Nessuna soluzione. |
-| `lezione-7-soluzione` | La **soluzione di riferimento**: un commit sopra al punto di partenza, che aggiunge le soluzioni svolte della Phase 01 e lo skeleton Go sviluppato della Phase 03. |
+| `lezione-8-fase-4` | Punto di partenza della Fase 4. Senza soluzioni. |
+| `lezione-8-fase-4-soluzione` | Fase 4 con le soluzioni svolte. |
+| `lezione-8-fase-5` | Punto di partenza della Fase 5 (include la Fase 4). Senza soluzioni. |
+| `lezione-8-fase-5-soluzione` | Fase 5 con le soluzioni svolte. |
 
-Costruisci prima il tuo lavoro. Vai alla soluzione solo dopo: `git switch lezione-7-soluzione`,
-oppure sfoglia quel branch sull'host della repo.
+Fai prima il tuo lavoro. Vai al branch soluzione solo dopo.
 
-## I tre checkpoint
+## I checkpoint
 
 | Checkpoint | Cartella | Cosa fai |
 |---|---|---|
-| CP1 — Capire | [`phase-01-monolith/`](./phase-01-monolith/README-IT.md) | Avvia MIC e mappalo: mappa delle pagine, architettura, guida alla repo, mappa degli accoppiamenti, lista dei peggiori. |
-| CP2 — Decidere | [`phase-02-analysis/`](./phase-02-analysis/README-IT.md) | L'analisi DDD (Event Storming, Ubiquitous Language, context mapping, dependency map) che nomina la BC da estrarre: **Warehouse**. |
-| CP3 — Costruire | [`phase-03-skeleton/`](./phase-03-skeleton/README-IT.md) | Costruisci tu il **domain layer Go** di Warehouse: aggregate, value object, eventi, repository port. |
+| CP1 — Capire | [`phase-01-monolith/`](./phase-01-monolith/README.md) | *(Lezione 7)* Avvia MIC e mappalo. |
+| CP2 — Decidere | [`phase-02-analysis/`](./phase-02-analysis/README.md) | *(Lezione 7)* Analisi DDD → il BC **Warehouse**. |
+| CP3 — Costruire | [`phase-03-skeleton/`](./phase-03-skeleton/README.md) | *(Lezione 7)* Il domain layer Go: aggregate, value object, eventi, porta del repository. |
+| **CP4 — Persistere** | [**`phase-04-db/`**](./phase-04-db/README.md) | **Questa lezione:** dai alla porta del repository degli adapter reali (inclusa l'**ACL** legacy) e un decorator **dual-write**. |
 
-**Da dove partire:** apri il `README.md` dentro
-[`phase-01-monolith/`](./phase-01-monolith/README-IT.md) e segui i checkpoint in ordine. Ogni
-cartella di fase ha la sua guida.
+**Da dove iniziare:** apri [`phase-04-db/README.md`](./phase-04-db/README.md). Le Fasi 1–3 sono incluse
+come contesto dalla Lezione 7.
 
-## Usare un agente AI di coding
+## Usare un agente di coding AI
 
-Gli agenti AI di coding sono parte del metodo, non una scorciatoia per aggirarlo.
+Gli agenti di coding AI sono parte del metodo, non una scorciatoia per aggirarlo.
 
-- **Avvia l'agente nella cartella giusta.** Aprilo sulla cartella della fase su cui stai lavorando
-  (es. `phase-01-monolith/`), non sull'intera repo, cosi' vede il codice che conta.
-- **Le conclusioni sono tue.** L'agente legge, abbozza e scrive la sintassi; tu decidi il design,
-  gli invarianti e cosa finisce nei tuoi deliverable.
-- **Mettilo in discussione.** Quando asserisce un accoppiamento o una regola, chiedi *"dove nel
-  codice o nello schema l'hai visto?"* prima di fidarti.
+- **Avvia l'agente nella cartella giusta.** Aprilo sulla cartella della fase su cui lavori (es.
+  `phase-04-db/`), non sull'intera repo, così vede il codice che conta.
+- **Le conclusioni sono tue.** L'agente legge, abbozza e scrive la sintassi; tu decidi il design, gli
+  invarianti e cosa finisce nei tuoi deliverable.
+- **Contesta.** Quando afferma una regola, chiedi *"dove nel codice l'hai vista?"* prima di fidarti.
 
 ## Riferimenti
 
-Gli Architecture Decision Record dei pattern che questo lab pratica sono in
-[`docs/adr/`](./docs/adr/): Strangler Fig (ADR-001), la baseline PHP di MIC (ADR-006), la clean
-architecture Go (ADR-007), l'Event Storming (ADR-010) e i building block DDD (ADR-011).
+Gli Architecture Decision Record dei pattern praticati in questo lab sono in [`docs/adr/`](./docs/adr/):
+Strangler Fig (ADR-001), baseline PHP di MIC (ADR-006), clean architecture Go (ADR-007), Event Storming
+(ADR-010), DDD building blocks (ADR-011), layer di Clean Architecture (ADR-002), Dual-Write (ADR-013).
