@@ -48,7 +48,7 @@ services:
       WAREHOUSE_DB_USER: warehouse_user
       WAREHOUSE_DB_PASSWORD: warehouse_pass
       WAREHOUSE_DB_NAME: warehouse_db
-      DUAL_WRITE_READ_MODE: legacy
+      DUAL_WRITE_READ_MODE: bc
     depends_on:
       legacy-mysql:
         condition: service_healthy
@@ -100,7 +100,7 @@ services:
       WAREHOUSE_DB_USER: warehouse_user
       WAREHOUSE_DB_PASSWORD: warehouse_pass
       WAREHOUSE_DB_NAME: warehouse_db
-      DUAL_WRITE_READ_MODE: legacy
+      DUAL_WRITE_READ_MODE: bc
     depends_on:
       legacy-mysql:
         condition: service_healthy
