@@ -17,9 +17,9 @@ func (r *Router) Register(e *echo.Echo) {
 	// GIVEN — the worked-example route.
 	e.POST("/articles", r.articleHandler.CreateArticle)
 
-	// TODO Slice 1: expose GetArticle. Uncomment once your handler is done.
-	// e.GET("/articles/:id", r.articleHandler.GetArticle)
+	// Slice 1: GetArticle.
+	e.GET("/articles/:id", r.articleHandler.GetArticle)
 
-	// TODO Slice 2: expose ChangeArticlePrice. Uncomment once your handler is done.
-	// e.PUT("/articles/:id/price", r.articleHandler.ChangeArticlePrice)
+	// Slice 2: ChangeArticlePrice.
+	e.PUT("/articles/:id/price", r.articleHandler.ChangeArticlePrice)
 }

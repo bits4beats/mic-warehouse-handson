@@ -3,15 +3,14 @@ package usecases
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"warehouse.local/core/dispatcher"
 	"warehouse.local/core/entities"
+	"warehouse.local/core/events"
 	"warehouse.local/core/interfaces"
 )
-
-// ErrChangeArticlePriceTODO is returned by the starter implementation until
-// the participant completes the Phase 05 task.
-var ErrChangeArticlePriceTODO = errors.New("ChangeArticlePriceUseCase TODO: complete the Phase 05 task")
 
 // ChangeArticlePriceInput carries the primitive request shape for a price
 // change application workflow.
@@ -41,5 +40,45 @@ func NewChangeArticlePriceUseCase(repo interfaces.ArticleRepository, d dispatche
 }
 
 func (uc *ChangeArticlePriceUseCase) Execute(ctx context.Context, in ChangeArticlePriceInput) (*ChangeArticlePriceOutput, error) {
-	return nil, ErrChangeArticlePriceTODO
+	if strings.TrimSpace(in.ArticleID) == "" {
+		return nil, errors.New("ChangeArticlePrice: articleID is required")
+	}
+	price, err := entities.NewMoney(in.NewPriceCents, in.Currency)
+	if err != nil {
+		return nil, fmt.Errorf("ChangeArticlePrice: %w", err)
+	}
+	a, err := uc.repo.FindByID(ctx, in.ArticleID)
+	if err != nil {
+		return nil, fmt.Errorf("ChangeArticlePrice: %w", err)
+	}
+
+	// Capture the old price before mutating: the aggregate records only a private
+	// event, so the use case builds the canonical event itself (like CreateArticle).
+	oldCents := a.Price.AmountCents
+	if err := a.ChangePrice(*price); err != nil {
+		return nil, fmt.Errorf("ChangeArticlePrice: %w", err)
+	}
+
+	// No-op: an unchanged price records no event. Do not Save or Dispatch.
+	if len(a.PendingEvents()) == 0 {
+		return &ChangeArticlePriceOutput{Article: a}, nil
+	}
+
+	if err := uc.repo.Save(ctx, a); err != nil {
+		return nil, fmt.Errorf("ChangeArticlePrice: save: %w", err)
+	}
+	// Save first, dispatch after; failures never dispatch.
+	canonical := events.ArticlePriceChanged{
+		ArticleID:     a.ID,
+		OldPriceCents: oldCents,
+		NewPriceCents: a.Price.AmountCents,
+		Currency:      a.Price.Currency,
+		At:            a.UpdatedAt,
+	}
+	if err := uc.dispatcher.Dispatch(ctx, []events.DomainEvent{canonical}); err != nil {
+		return nil, fmt.Errorf("ChangeArticlePrice: dispatch: %w", err)
+	}
+	a.ClearPendingEvents()
+
+	return &ChangeArticlePriceOutput{Article: a}, nil
 }
