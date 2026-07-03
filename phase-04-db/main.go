@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -33,7 +34,13 @@ func main() {
 	// Phase 04 exposes only /health; the dual-write repository is wired here so the
 	// composition root is complete. The seed CLI (cmd/seed) exercises it against the
 	// two real databases; HTTP handlers arrive in Phase 06.
-	_ = dual
+
+	// Read-source feature toggle. A running process's env is immutable, so the live
+	// toggle is backed by a file (DUAL_WRITE_READ_MODE_FILE): edit it, then SIGHUP the
+	// process to flip legacy<->bc without a restart. Mount it via a volume/ConfigMap.
+	// Send with `kill -HUP <pid>` or, in a container, `docker compose kill -s HUP app`.
+	// If the file is absent the DUAL_WRITE_READ_MODE env value (used at startup) stands.
+	watchReadModeToggle(dual)
 
 	e := echo.New()
 	e.Use(middleware.Logger())
@@ -42,12 +49,47 @@ func main() {
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(200, map[string]any{
 			"status": "ok",
-			"mode":   readModeName(mode),
+			"mode":   readModeName(dual.ReadMode()),
 		})
 	})
 
-	log.Printf("Starting server on :8081 (read mode: %s)", readModeName(mode))
+	log.Printf("Starting server on :8081 (read mode: %s)", readModeName(dual.ReadMode()))
 	e.Logger.Fatal(e.Start(":8081"))
+}
+
+// watchReadModeToggle reloads the read-source toggle from the file named by
+// DUAL_WRITE_READ_MODE_FILE whenever the process receives SIGHUP, letting operators
+// switch legacy<->bc during migration without a restart. A missing file or invalid
+// value is logged and ignored, so an operator mistake cannot take the service down.
+func watchReadModeToggle(dual *repositories.DualWriteArticleRepository) {
+	path := os.Getenv("DUAL_WRITE_READ_MODE_FILE")
+	if path == "" {
+		log.Print("read-mode toggle: DUAL_WRITE_READ_MODE_FILE unset, SIGHUP reload disabled")
+		return
+	}
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGHUP)
+	go func() {
+		for range sig {
+			mode, err := readModeFromFile(path)
+			if err != nil {
+				log.Printf("SIGHUP: keeping read mode %s (%v)", readModeName(dual.ReadMode()), err)
+				continue
+			}
+			dual.SetReadMode(mode)
+			log.Printf("SIGHUP: read mode set to %s (from %s)", readModeName(mode), path)
+		}
+	}()
+}
+
+// readModeFromFile reads and parses the read-mode toggle file (its whole content is
+// "legacy" or "bc", surrounding whitespace ignored).
+func readModeFromFile(path string) (repositories.ReadMode, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", path, err)
+	}
+	return parseReadMode(string(raw))
 }
 
 // wireRepositories opens the legacy and warehouse MySQL connections from env vars.
@@ -115,13 +157,13 @@ func envOr(key, fallback string) string {
 }
 
 func parseReadMode(s string) (repositories.ReadMode, error) {
-	switch strings.ToLower(s) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "legacy":
 		return repositories.ReadFromLegacy, nil
 	case "bc":
 		return repositories.ReadFromBC, nil
 	default:
-		return 0, errors.New("DUAL_WRITE_READ_MODE must be legacy|bc")
+		return 0, fmt.Errorf("read mode must be legacy|bc, got %q", strings.TrimSpace(s))
 	}
 }
 

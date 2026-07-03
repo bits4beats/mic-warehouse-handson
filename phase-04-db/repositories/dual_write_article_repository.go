@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"sync"
 
 	"warehouse.local/core/entities"
 	"warehouse.local/core/interfaces"
@@ -31,7 +32,11 @@ const (
 type DualWriteArticleRepository struct {
 	legacy interfaces.ArticleRepository
 	bc     interfaces.ArticleRepository
-	mode   ReadMode
+
+	// mu guards mode so the read-source feature toggle can be flipped at runtime
+	// (SetReadMode) while reads are in flight, without recreating the repository.
+	mu   sync.RWMutex
+	mode ReadMode
 }
 
 func NewDualWriteArticleRepository(
@@ -75,10 +80,26 @@ func (r *DualWriteArticleRepository) List(ctx context.Context) ([]*entities.Arti
 	return r.readStore().List(ctx)
 }
 
+// SetReadMode flips the read-source feature toggle at runtime. Writes are
+// unaffected (always both stores); only the store reads are routed to changes.
+// Safe to call concurrently with reads.
+func (r *DualWriteArticleRepository) SetReadMode(mode ReadMode) {
+	r.mu.Lock()
+	r.mode = mode
+	r.mu.Unlock()
+}
+
+// ReadMode returns the store reads are currently routed to.
+func (r *DualWriteArticleRepository) ReadMode() ReadMode {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.mode
+}
+
 // readStore picks the single store reads are routed to, per the configured mode.
 // Writes always hit both stores; reads hit exactly one.
 func (r *DualWriteArticleRepository) readStore() interfaces.ArticleRepository {
-	if r.mode == ReadFromBC {
+	if r.ReadMode() == ReadFromBC {
 		return r.bc
 	}
 	return r.legacy
